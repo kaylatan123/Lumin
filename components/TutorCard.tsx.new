@@ -1,0 +1,151 @@
+import React, { useState } from 'react';
+import { StyleSheet, Image, Dimensions, Animated, PanResponder } from 'react-native';
+import { ThemedView } from './ThemedView';
+import { ThemedText } from './ThemedText';
+import { SwipeAnimation } from './SwipeAnimation';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+
+interface TutorCardProps {
+  tutor: {
+    id: string;
+    name: string;
+    bio: string;
+    rating: number;
+    photoUrl: string;
+  };
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+}
+
+export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight }: TutorCardProps) {
+  const [showAnimation, setShowAnimation] = useState<'left' | 'right' | null>(null);
+  const position = new Animated.ValueXY();
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gesture) => {
+        position.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
+          const direction = gesture.dx > 0 ? 1 : -1;
+          setShowAnimation(direction === 1 ? 'right' : 'left');
+          Animated.spring(position, {
+            toValue: { x: direction * SCREEN_WIDTH * 2, y: gesture.dy },
+            useNativeDriver: true,
+          }).start();
+        } else {
+          Animated.spring(position, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  const rotateCard = position.x.interpolate({
+    inputRange: [-SCREEN_WIDTH * 1.5, 0, SCREEN_WIDTH * 1.5],
+    outputRange: ['-30deg', '0deg', '30deg'],
+  });
+
+  return (
+    <>
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.card,
+          {
+            transform: [
+              { translateX: position.x },
+              { rotate: rotateCard },
+            ],
+          },
+        ]}
+      >
+        <Image source={{ uri: tutor.photoUrl }} style={styles.photo} />
+        <ThemedView style={styles.infoContainer}>
+          <ThemedView style={styles.nameRatingContainer}>
+            <ThemedText type="title" style={styles.name}>{tutor.name}</ThemedText>
+            <ThemedView style={styles.ratingContainer}>
+              <ThemedText type="defaultSemiBold" style={styles.rating}>
+                {tutor.rating.toFixed(1)}
+              </ThemedText>
+              <ThemedText type="default" style={styles.starIcon}>★</ThemedText>
+            </ThemedView>
+          </ThemedView>
+          <ThemedText style={styles.bio}>{tutor.bio}</ThemedText>
+        </ThemedView>
+      </Animated.View>
+      {showAnimation && (
+        <SwipeAnimation 
+          type={showAnimation} 
+          onAnimationComplete={() => {
+            setShowAnimation(null);
+            if (showAnimation === 'right') {
+              onSwipeRight();
+            } else {
+              onSwipeLeft();
+            }
+          }} 
+        />
+      )}
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    width: SCREEN_WIDTH * 0.9,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'absolute',
+  },
+  photo: {
+    width: '100%',
+    height: SCREEN_WIDTH,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  infoContainer: {
+    padding: 20,
+  },
+  nameRatingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  rating: {
+    marginRight: 5,
+  },
+  starIcon: {
+    color: '#FFD700',
+  },
+  bio: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+});

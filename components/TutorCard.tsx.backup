@@ -1,0 +1,336 @@
+import React, { useState, useRef } from 'react';
+import { StyleSheet, Image, Dimensions, Animated, PanResponder, View, TouchableOpacity } from 'react-native';
+import { ThemedView } from './ThemedView';
+import { ThemedText } from './ThemedText';
+import { IconSymbol } from './ui/IconSymbol';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
+import * as Haptics from 'expo-haptics';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25; // Threshold for completing swipe
+
+interface TutorCardProps {
+  tutor: {
+    id: string;
+    name: string;
+    bio: string;
+    rating: number;
+    photoUrl: string;
+    videoUrl?: string;
+  };
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+}
+
+export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight }: TutorCardProps) {
+  const position = new Animated.ValueXY();
+  const flipAnimation = useRef(new Animated.Value(0)).current;
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const videoRef = useRef<Video>(null);
+
+  // Flip card function
+  const flipCard = () => {
+    if (isFlipped) {
+      // Stop video when flipping back
+      if (videoRef.current) {
+        videoRef.current.pauseAsync();
+        setIsVideoPlaying(false);
+      }
+    }
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    Animated.timing(flipAnimation, {
+      toValue: isFlipped ? 0 : 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+    
+    setIsFlipped(!isFlipped);
+  };
+
+  // Handle tap on card
+  const handleCardTap = () => {
+    if (!isFlipped && tutor.videoUrl) {
+      flipCard();
+    }
+  };
+
+  // Front card interpolation
+  const frontInterpolate = flipAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
+  // Back card interpolation  
+  const backInterpolate = flipAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['180deg', '360deg'],
+  });
+    onStartShouldSetPanResponder: (evt, gestureState) => {
+      // Only allow panning if not flipped or if it's a swipe gesture
+      return !isFlipped || Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+    },
+    onPanResponderGrant: () => {
+      // Reset animation values when starting a new gesture
+      position.setOffset({
+        x: (position.x as any)._value,
+        y: (position.y as any)._value,
+      });
+      position.setValue({ x: 0, y: 0 });
+    },
+    onPanResponderMove: (_, gesture) => {
+      // Update position during drag
+      position.setValue({ x: gesture.dx, y: gesture.dy });
+      
+      // Determine swipe direction and provide haptic feedback
+      if (Math.abs(gesture.dx) > 50) {
+        const newDirection = gesture.dx > 0 ? 'right' : 'left';
+        if (newDirection !== swipeDirection) {
+          setSwipeDirection(newDirection);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      } else {
+        if (swipeDirection !== null) {
+          setSwipeDirection(null);
+        }
+      }
+    },
+    onPanResponderRelease: (_, gesture) => {
+      position.flattenOffset();
+      
+      const { dx, vx } = gesture;
+      const hasReachedThreshold = Math.abs(dx) > SWIPE_THRESHOLD;
+      const hasGoodVelocity = Math.abs(vx) > 0.3;
+      
+      if (hasReachedThreshold || hasGoodVelocity) {
+        // Determine swipe direction
+        const isSwipeRight = dx > 0;
+        const targetX = isSwipeRight ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5;
+        
+        // Provide haptic feedback
+        Haptics.notificationAsync(
+          isSwipeRight 
+            ? Haptics.NotificationFeedbackType.Success 
+            : Haptics.NotificationFeedbackType.Warning
+        );
+
+        // Animate card off screen
+        Animated.timing(position, {
+          toValue: { x: targetX, y: gesture.dy },
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
+          // Call appropriate callback after animation completes
+          if (isSwipeRight) {
+            onSwipeRight();
+          } else {
+            onSwipeLeft();
+          }
+          
+          // Reset position for next card
+          position.setValue({ x: 0, y: 0 });
+          setSwipeDirection(null);
+        });
+      } else {
+        // Snap back to center
+        setSwipeDirection(null);
+        Animated.spring(position, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+        }).start();
+      }
+    },
+  });
+
+  // Card rotation based on horizontal movement
+  const rotateCard = position.x.interpolate({
+    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    outputRange: ['-15deg', '0deg', '15deg'],
+    extrapolate: 'clamp',
+  });
+
+  // Opacity for swipe direction indicators
+  const leftOpacity = position.x.interpolate({
+    inputRange: [-SCREEN_WIDTH / 2, -50, 0],
+    outputRange: [1, 0.8, 0],
+    extrapolate: 'clamp',
+  });
+
+  const rightOpacity = position.x.interpolate({
+    inputRange: [0, 50, SCREEN_WIDTH / 2],
+    outputRange: [0, 0.8, 1],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Animated.View
+      {...panResponder.panHandlers}
+      style={[
+        styles.card,
+        {
+          transform: [
+            { translateX: position.x },
+            { translateY: position.y },
+            { rotate: rotateCard },
+          ],
+        },
+      ]}
+    >
+      {/* Left Swipe Indicator */}
+      <Animated.View style={[styles.swipeIndicator, styles.leftIndicator, { opacity: leftOpacity }]}>
+        <LinearGradient
+          colors={['rgba(255,75,75,0.9)', 'rgba(255,100,100,0.8)']}
+          style={styles.indicatorGradient}
+        >
+          <IconSymbol size={40} name="xmark.circle.fill" color="#FFF" />
+          <ThemedText style={styles.indicatorText}>NOPE</ThemedText>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Right Swipe Indicator */}
+      <Animated.View style={[styles.swipeIndicator, styles.rightIndicator, { opacity: rightOpacity }]}>
+        <LinearGradient
+          colors={['rgba(75,255,75,0.9)', 'rgba(100,255,100,0.8)']}
+          style={styles.indicatorGradient}
+        >
+          <IconSymbol size={40} name="heart.circle.fill" color="#FFF" />
+          <ThemedText style={styles.indicatorText}>LIKE</ThemedText>
+        </LinearGradient>
+      </Animated.View>
+
+      <View style={styles.photoContainer}>
+        <Image source={{ uri: tutor.photoUrl }} style={styles.photo} />
+        <LinearGradient
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
+          style={styles.photoGradient}
+        />
+      </View>
+      <LinearGradient
+        colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
+        style={styles.infoGradient}
+      >
+        <ThemedView style={styles.infoContainer}>
+          <ThemedView style={styles.nameRatingContainer}>
+            <ThemedText type="title" style={styles.name}>{tutor.name}</ThemedText>
+            <LinearGradient
+              colors={['rgba(255,215,0,0.2)', 'rgba(255,215,0,0.4)']}
+              style={styles.ratingContainer}
+            >
+              <ThemedText type="defaultSemiBold" style={styles.rating}>
+                {tutor.rating.toFixed(1)}
+              </ThemedText>
+              <ThemedText type="default" style={styles.starIcon}>★</ThemedText>
+            </LinearGradient>
+          </ThemedView>
+          <ThemedText style={styles.bio}>{tutor.bio}</ThemedText>
+        </ThemedView>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    width: SCREEN_WIDTH * 0.9,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'absolute',
+    overflow: 'hidden',
+  },
+  swipeIndicator: {
+    position: 'absolute',
+    top: 50,
+    zIndex: 1000,
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  leftIndicator: {
+    left: 20,
+  },
+  rightIndicator: {
+    right: 20,
+  },
+  indicatorGradient: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
+  },
+  indicatorText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 8,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  photoContainer: {
+    position: 'relative',
+    width: '100%',
+    height: SCREEN_WIDTH,
+  },
+  photoGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 160,
+  },
+  infoGradient: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  photo: {
+    width: '100%',
+    height: SCREEN_WIDTH,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  infoContainer: {
+    padding: 20,
+  },
+  nameRatingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  rating: {
+    marginRight: 5,
+  },
+  starIcon: {
+    color: '#FFD700',
+  },
+  bio: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+});
