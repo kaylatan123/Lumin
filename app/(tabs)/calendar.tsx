@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
 import AuraBackground from '@/components/AuraBackground';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, Alert } from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
-import { LinearGradient } from 'expo-linear-gradient';
 import BellIcon from '@/components/BellIcon';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
+import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 

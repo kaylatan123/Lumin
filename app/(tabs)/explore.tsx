@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
 import AuraBackground from '@/components/AuraBackground';
+import BellIcon from '@/components/BellIcon';
 import { ThemedView } from '@/components/ThemedView';
 import TutorCard from '@/components/TutorCard';
-import BellIcon from '@/components/BellIcon';
+import React, { useState } from 'react';
+import { StyleSheet } from 'react-native';
 
   const tutors = [
     {
