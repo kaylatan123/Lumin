@@ -1,12 +1,26 @@
 import React, { useState } from 'react';
 import AuraBackground from '@/components/AuraBackground';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, Alert } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { LinearGradient } from 'expo-linear-gradient';
 import BellIcon from '@/components/BellIcon';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 
 const { width } = Dimensions.get('window');
+
+// Sample scheduled meetings data
+const scheduledMeetings: { [key: string]: { tutor: string; time: string; subject: string } } = {
+  // Format: 'YYYY-MM-DD': meeting info
+  '2025-10-15': { tutor: 'Sarah Chen', time: '2:00 PM', subject: 'Mathematics' },
+  '2025-10-18': { tutor: 'Michael Rodriguez', time: '4:30 PM', subject: 'Physics' },
+  '2025-10-22': { tutor: 'Emma Wilson', time: '1:00 PM', subject: 'English' },
+  '2025-10-25': { tutor: 'David Kim', time: '3:15 PM', subject: 'Computer Science' },
+  '2025-11-02': { tutor: 'Lisa Thompson', time: '11:00 AM', subject: 'History' },
+  '2025-11-08': { tutor: 'Sarah Chen', time: '5:00 PM', subject: 'Calculus' },
+  '2025-11-15': { tutor: 'Michael Rodriguez', time: '2:30 PM', subject: 'Chemistry' },
+  '2025-12-03': { tutor: 'Emma Wilson', time: '10:00 AM', subject: 'Creative Writing' },
+};
 
 export default function CalendarScreen() {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
@@ -64,6 +78,27 @@ export default function CalendarScreen() {
     return new Date(year, month, 1).getDay();
   };
 
+  const hasScheduledMeeting = (day: number, month: number, year: number) => {
+    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return scheduledMeetings[dateKey] !== undefined;
+  };
+
+  const getMeetingInfo = (day: number, month: number, year: number) => {
+    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return scheduledMeetings[dateKey];
+  };
+
+  const showMeetingDetails = (day: number, month: number, year: number) => {
+    const meetingInfo = getMeetingInfo(day, month, year);
+    if (meetingInfo) {
+      Alert.alert(
+        `Meeting on ${months[month]} ${day}`,
+        `Tutor: ${meetingInfo.tutor}\nSubject: ${meetingInfo.subject}\nTime: ${meetingInfo.time}`,
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
+  };
+
   const renderMiniMonth = (monthIndex: number) => {
     const days = daysInMonth(monthIndex, currentYear);
     const firstDay = getFirstDayOfMonth(monthIndex, currentYear);
@@ -79,8 +114,15 @@ export default function CalendarScreen() {
     // Add all days of the month
     for (let day = 1; day <= days; day++) {
       const isToday = isCurrentMonth && day === currentDay;
+      const hasMeeting = hasScheduledMeeting(day, monthIndex, currentYear);
+      
       daysArray.push(
         <View key={day} style={[styles.miniDay, isToday && styles.todayMini]}>
+          {hasMeeting && (
+            <View style={styles.miniStarContainer}>
+              <IconSymbol size={12} name="star.fill" color="#FFD700" />
+            </View>
+          )}
           <Text style={[styles.miniDayText, isToday && styles.todayText]}>
             {day}
           </Text>
@@ -136,22 +178,34 @@ export default function CalendarScreen() {
     // Add all days of the month
     for (let day = 1; day <= days; day++) {
       const isToday = isCurrentMonth && day === currentDay;
+      const hasMeeting = hasScheduledMeeting(day, monthIndex, currentYear);
+      const meetingInfo = getMeetingInfo(day, monthIndex, currentYear);
+      
       daysArray.push(
         <TouchableOpacity 
           key={day} 
           style={[styles.fullDay, isToday && styles.todayFull]}
           activeOpacity={0.7}
+          onPress={() => hasMeeting && showMeetingDetails(day, monthIndex, currentYear)}
         >
-          {isToday ? (
-            <LinearGradient
-              colors={['rgba(255, 69, 58, 0.9)', 'rgba(255, 45, 85, 0.8)']}
-              style={styles.todayCircle}
-            >
-              <Text style={styles.todayFullText}>{day}</Text>
-            </LinearGradient>
-          ) : (
-            <Text style={styles.fullDayText}>{day}</Text>
-          )}
+          <View style={styles.dayContentContainer}>
+            {isToday ? (
+              <LinearGradient
+                colors={['rgba(255, 69, 58, 0.9)', 'rgba(255, 45, 85, 0.8)']}
+                style={styles.todayCircle}
+              >
+                <Text style={styles.todayFullText}>{day}</Text>
+              </LinearGradient>
+            ) : (
+              <Text style={[styles.fullDayText, hasMeeting && styles.meetingDayText]}>{day}</Text>
+            )}
+            
+            {hasMeeting && (
+              <View style={styles.starContainer}>
+                <IconSymbol size={16} name="star.fill" color="#FFD700" />
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
       );
     }
@@ -222,6 +276,18 @@ export default function CalendarScreen() {
               <Text style={styles.headerSubtext}>
                 Tap any month to view details
               </Text>
+              
+              {/* Legend */}
+              <View style={styles.legendContainer}>
+                <View style={styles.legendItem}>
+                  <View style={styles.legendCircle} />
+                  <Text style={styles.legendText}>Today</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <IconSymbol size={14} name="star.fill" color="#FFD700" />
+                  <Text style={styles.legendText}>Meeting</Text>
+                </View>
+              </View>
             </LinearGradient>
           </ThemedView>
           
@@ -324,6 +390,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 10,
+    position: 'relative',
+  },
+  miniStarContainer: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    zIndex: 1,
   },
   todayMini: {
     backgroundColor: 'rgba(255, 69, 58, 0.9)',
@@ -398,6 +471,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
+    position: 'relative',
+  },
+  dayContentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+    position: 'relative',
   },
   todayFull: {
     // No additional styles needed, the gradient handles the background
@@ -414,9 +496,43 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     fontWeight: '500',
   },
+  meetingDayText: {
+    color: '#d63031',
+    fontWeight: 'bold',
+  },
+  starContainer: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    zIndex: 1,
+  },
   todayFullText: {
     fontSize: 16,
     color: 'white',
     fontWeight: 'bold',
+  },
+  
+  // Legend styles
+  legendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 15,
+    gap: 20,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255, 69, 58, 0.9)',
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#5a6c57',
+    fontWeight: '500',
   },
 });

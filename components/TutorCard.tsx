@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { StyleSheet, Image, Dimensions, Animated, PanResponder, View, TouchableOpacity } from 'react-native';
-import { ThemedView } from './ThemedView';
-import { ThemedText } from './ThemedText';
-import { IconSymbol } from './ui/IconSymbol';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
+import { ResizeMode, Video } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useRef, useState } from 'react';
+import { Animated, Dimensions, Image, PanResponder, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ThemedText } from './ThemedText';
+import { ThemedView } from './ThemedView';
+import { IconSymbol } from './ui/IconSymbol';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25; // Threshold for completing swipe
@@ -21,61 +21,118 @@ interface TutorCardProps {
   };
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
+  onSwipeUp?: () => void;
+  onSwipeDown?: () => void;
 }
 
-export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight }: TutorCardProps) {
+export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown }: TutorCardProps) {
   const position = new Animated.ValueXY();
-  const flipAnimation = useRef(new Animated.Value(0)).current;
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+  const fadeAnimation = useRef(new Animated.Value(1)).current;
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | 'up' | 'down' | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [lastTap, setLastTap] = useState(0);
   const videoRef = useRef<Video>(null);
 
-  // Flip card function
-  const flipCard = () => {
-    if (isFlipped) {
-      // Stop video when flipping back
-      if (videoRef.current) {
-        videoRef.current.pauseAsync();
-        setIsVideoPlaying(false);
-      }
-    }
-    
+  // Simple fade transition instead of flip
+  const fadeToVideo = () => {    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
-    Animated.timing(flipAnimation, {
-      toValue: isFlipped ? 0 : 1,
-      duration: 600,
+    Animated.timing(fadeAnimation, {
+      toValue: 0,
+      duration: 200,
       useNativeDriver: true,
-    }).start();
-    
-    setIsFlipped(!isFlipped);
+    }).start(() => {
+      setIsFlipped(true);
+      Animated.timing(fadeAnimation, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
   };
 
-  // Handle tap on card
-  const handleCardTap = () => {
+  // Fade back to front
+  const fadeToFront = () => {
+    Animated.timing(fadeAnimation, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsFlipped(false);
+      Animated.timing(fadeAnimation, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  // Handle double tap on card to fade and show video
+  const handleDoubleTap = () => {
     if (!isFlipped && tutor.videoUrl) {
-      flipCard();
+      fadeToVideo();
+      setTimeout(() => {
+        setIsVideoPlaying(true);
+        if (videoRef.current) {
+          videoRef.current.playAsync();
+        }
+      }, 200); // Start video after fade animation
     }
   };
 
-  // Front card interpolation
-  const frontInterpolate = flipAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
+  // Handle single tap to detect double tap or pause/play video
+  const handleTap = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
 
-  // Back card interpolation  
-  const backInterpolate = flipAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['180deg', '360deg'],
-  });
+    if (isFlipped) {
+      // If video is showing, toggle play/pause
+      if (isVideoPlaying) {
+        setIsVideoPlaying(false);
+        if (videoRef.current) {
+          videoRef.current.pauseAsync();
+        }
+      } else {
+        setIsVideoPlaying(true);
+        if (videoRef.current) {
+          videoRef.current.playAsync();
+        }
+      }
+      return;
+    }
 
-  // Pan responder for swipe gestures
+    // Check for double tap on front side
+    if (lastTap && (now - lastTap) < DOUBLE_TAP_DELAY) {
+      // Double tap detected
+      handleDoubleTap();
+      setLastTap(0); // Reset to prevent triple tap
+    } else {
+      // Single tap - wait to see if there's a second tap
+      setLastTap(now);
+    }
+  };
+
+  // Handle fade back (closes video)
+  const handleFadeBack = () => {
+    if (isFlipped) {
+      setIsVideoPlaying(false);
+      if (videoRef.current) {
+        videoRef.current.pauseAsync();
+      }
+      fadeToFront();
+    }
+  };
+
+  // Pan responder for swipe gestures in all directions
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: (evt, gestureState) => {
-      // Only allow panning if not flipped or if it's a swipe gesture
-      return !isFlipped || Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      // Allow small movements for taps, larger movements for swipes
+      return true;
+    },
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      // Set pan responder for any significant movement
+      return Math.abs(gestureState.dx) > 8 || Math.abs(gestureState.dy) > 8;
     },
     onPanResponderGrant: () => {
       // Reset animation values when starting a new gesture
@@ -89,49 +146,109 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight }: TutorCar
       // Update position during drag
       position.setValue({ x: gesture.dx, y: gesture.dy });
       
-      // Determine swipe direction and provide haptic feedback
-      if (Math.abs(gesture.dx) > 50) {
-        const newDirection = gesture.dx > 0 ? 'right' : 'left';
-        if (newDirection !== swipeDirection) {
-          setSwipeDirection(newDirection);
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      // Determine swipe direction dynamically and provide haptic feedback
+      const { dx, dy } = gesture;
+      const threshold = 40;
+      
+      let newDirection: 'left' | 'right' | 'up' | 'down' | null = null;
+      
+      // Determine primary direction based on larger movement
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal movement is primary
+        if (Math.abs(dx) > threshold) {
+          newDirection = dx > 0 ? 'right' : 'left';
         }
       } else {
-        if (swipeDirection !== null) {
-          setSwipeDirection(null);
+        // Vertical movement is primary
+        if (Math.abs(dy) > threshold) {
+          newDirection = dy > 0 ? 'down' : 'up';
+        }
+      }
+      
+      if (newDirection !== swipeDirection) {
+        setSwipeDirection(newDirection);
+        if (newDirection) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
       }
     },
     onPanResponderRelease: (_, gesture) => {
       position.flattenOffset();
       
-      const { dx, vx } = gesture;
-      const hasReachedThreshold = Math.abs(dx) > SWIPE_THRESHOLD;
-      const hasGoodVelocity = Math.abs(vx) > 0.3;
+      const { dx, dy, vx, vy } = gesture;
+      const horizontalThreshold = SWIPE_THRESHOLD;
+      const verticalThreshold = SWIPE_THRESHOLD * 0.8; // Slightly easier vertical swipes
       
-      if (hasReachedThreshold || hasGoodVelocity) {
-        // Determine swipe direction
-        const isSwipeRight = dx > 0;
-        const targetX = isSwipeRight ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5;
+      const hasHorizontalReach = Math.abs(dx) > horizontalThreshold;
+      const hasVerticalReach = Math.abs(dy) > verticalThreshold;
+      const hasGoodVelocity = Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3;
+      
+      // Check if it's a tap (small movement, not flipped)
+      if (!isFlipped && Math.abs(dx) < 15 && Math.abs(dy) < 15 && !hasGoodVelocity) {
+        // It's a tap - handle single/double tap
+        handleTap();
+        setSwipeDirection(null);
+        Animated.spring(position, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+        }).start();
+        return;
+      }
+      
+      // Determine swipe direction based on movement and velocity
+      let swipeDir: 'left' | 'right' | 'up' | 'down' | null = null;
+      let targetX = 0, targetY = 0;
+      
+      if (hasHorizontalReach || Math.abs(vx) > 0.5) {
+        if (dx > 0) {
+          swipeDir = 'right';
+          targetX = SCREEN_WIDTH * 1.5;
+        } else {
+          swipeDir = 'left';
+          targetX = -SCREEN_WIDTH * 1.5;
+        }
+        targetY = dy;
+      } else if (hasVerticalReach || Math.abs(vy) > 0.5) {
+        if (dy > 0) {
+          swipeDir = 'down';
+          targetY = SCREEN_WIDTH * 1.5;
+        } else {
+          swipeDir = 'up';
+          targetY = -SCREEN_WIDTH * 1.5;
+        }
+        targetX = dx;
+      }
+      
+      if (swipeDir) {
+        // Provide haptic feedback based on direction
+        const feedbackType = swipeDir === 'right' || swipeDir === 'up' 
+          ? Haptics.NotificationFeedbackType.Success 
+          : Haptics.NotificationFeedbackType.Warning;
         
-        // Provide haptic feedback
-        Haptics.notificationAsync(
-          isSwipeRight 
-            ? Haptics.NotificationFeedbackType.Success 
-            : Haptics.NotificationFeedbackType.Warning
-        );
+        Haptics.notificationAsync(feedbackType);
 
         // Animate card off screen
         Animated.timing(position, {
-          toValue: { x: targetX, y: gesture.dy },
+          toValue: { x: targetX, y: targetY },
           duration: 300,
           useNativeDriver: true,
         }).start(() => {
           // Call appropriate callback after animation completes
-          if (isSwipeRight) {
-            onSwipeRight();
-          } else {
-            onSwipeLeft();
+          switch(swipeDir) {
+            case 'left':
+              onSwipeLeft();
+              break;
+            case 'right':
+              onSwipeRight();
+              break;
+            case 'up':
+              onSwipeUp && onSwipeUp();
+              break;
+            case 'down':
+              onSwipeDown && onSwipeDown();
+              break;
           }
           
           // Reset position for next card
@@ -151,22 +268,40 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight }: TutorCar
     },
   });
 
-  // Card rotation based on horizontal movement
+  // Card rotation based on movement (more dynamic)
   const rotateCard = position.x.interpolate({
     inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
     outputRange: ['-15deg', '0deg', '15deg'],
     extrapolate: 'clamp',
   });
 
+  const rotateCardY = position.y.interpolate({
+    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    outputRange: ['-8deg', '0deg', '8deg'],
+    extrapolate: 'clamp',
+  });
+
   // Opacity for swipe direction indicators
   const leftOpacity = position.x.interpolate({
-    inputRange: [-SCREEN_WIDTH / 2, -50, 0],
+    inputRange: [-SCREEN_WIDTH / 2, -40, 0],
     outputRange: [1, 0.8, 0],
     extrapolate: 'clamp',
   });
 
   const rightOpacity = position.x.interpolate({
-    inputRange: [0, 50, SCREEN_WIDTH / 2],
+    inputRange: [0, 40, SCREEN_WIDTH / 2],
+    outputRange: [0, 0.8, 1],
+    extrapolate: 'clamp',
+  });
+
+  const upOpacity = position.y.interpolate({
+    inputRange: [-SCREEN_WIDTH / 2, -40, 0],
+    outputRange: [1, 0.8, 0],
+    extrapolate: 'clamp',
+  });
+
+  const downOpacity = position.y.interpolate({
+    inputRange: [0, 40, SCREEN_WIDTH / 2],
     outputRange: [0, 0.8, 1],
     extrapolate: 'clamp',
   });
@@ -181,6 +316,7 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight }: TutorCar
             { translateX: position.x },
             { translateY: position.y },
             { rotate: rotateCard },
+            { rotateY: rotateCardY },
           ],
         },
       ]}
@@ -207,33 +343,142 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight }: TutorCar
         </LinearGradient>
       </Animated.View>
 
-      <View style={styles.photoContainer}>
-        <Image source={{ uri: tutor.photoUrl }} style={styles.photo} />
+      {/* Up Swipe Indicator */}
+      <Animated.View style={[styles.swipeIndicator, styles.upIndicator, { opacity: upOpacity }]}>
         <LinearGradient
-          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
-          style={styles.photoGradient}
-        />
-      </View>
-      <LinearGradient
-        colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
-        style={styles.infoGradient}
-      >
-        <ThemedView style={styles.infoContainer}>
-          <ThemedView style={styles.nameRatingContainer}>
-            <ThemedText type="title" style={styles.name}>{tutor.name}</ThemedText>
+          colors={['rgba(75,150,255,0.9)', 'rgba(100,170,255,0.8)']}
+          style={styles.indicatorGradient}
+        >
+          <IconSymbol size={40} name="star.circle.fill" color="#FFF" />
+          <ThemedText style={styles.indicatorText}>SUPER</ThemedText>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Down Swipe Indicator */}
+      <Animated.View style={[styles.swipeIndicator, styles.downIndicator, { opacity: downOpacity }]}>
+        <LinearGradient
+          colors={['rgba(255,150,75,0.9)', 'rgba(255,170,100,0.8)']}
+          style={styles.indicatorGradient}
+        >
+          <IconSymbol size={40} name="bookmark.circle.fill" color="#FFF" />
+          <ThemedText style={styles.indicatorText}>SAVE</ThemedText>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Front Side of Card */}
+      {!isFlipped && (
+        <Animated.View 
+          style={[
+            styles.cardSide,
+            { 
+              opacity: fadeAnimation,
+            }
+          ]}
+        >
+          <TouchableOpacity onPress={handleTap} activeOpacity={0.9} style={styles.cardTouchable}>
+            <View style={styles.photoContainer}>
+              <Image source={{ uri: tutor.photoUrl }} style={styles.photo} />
+              <LinearGradient
+                colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
+                style={styles.photoGradient}
+              />
+            </View>
             <LinearGradient
-              colors={['rgba(255,215,0,0.2)', 'rgba(255,215,0,0.4)']}
-              style={styles.ratingContainer}
+              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.98)']}
+              style={styles.infoGradient}
             >
-              <ThemedText type="defaultSemiBold" style={styles.rating}>
-                {tutor.rating.toFixed(1)}
-              </ThemedText>
-              <ThemedText type="default" style={styles.starIcon}>★</ThemedText>
+              <ThemedView style={styles.infoContainer}>
+                <ThemedView style={styles.nameRatingContainer}>
+                  <ThemedText type="title" style={styles.name}>{tutor.name}</ThemedText>
+                  <LinearGradient
+                    colors={['rgba(255,215,0,0.2)', 'rgba(255,215,0,0.4)']}
+                    style={styles.ratingContainer}
+                  >
+                    <ThemedText type="defaultSemiBold" style={styles.rating}>
+                      {tutor.rating.toFixed(1)}
+                    </ThemedText>
+                    <ThemedText type="default" style={styles.starIcon}>★</ThemedText>
+                  </LinearGradient>
+                </ThemedView>
+                <ThemedText style={styles.bio}>{tutor.bio}</ThemedText>
+                {tutor.videoUrl && (
+                  <ThemedText style={styles.tapHint}>Double-tap to see introduction video</ThemedText>
+                )}
+              </ThemedView>
             </LinearGradient>
-          </ThemedView>
-          <ThemedText style={styles.bio}>{tutor.bio}</ThemedText>
-        </ThemedView>
-      </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* Back Side of Card - Video */}
+      {isFlipped && (
+        <Animated.View 
+          style={[
+            styles.cardSide,
+            styles.cardBack,
+            { 
+              opacity: fadeAnimation,
+            }
+          ]}
+        >
+        <TouchableOpacity 
+          style={styles.videoCloseButton} 
+          onPress={handleFadeBack}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
+            style={styles.closeButtonGradient}
+          >
+            <IconSymbol size={30} name="xmark" color="#FFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        {tutor.videoUrl && (
+          <TouchableOpacity 
+            style={styles.videoTouchable} 
+            onPress={handleTap}
+            activeOpacity={1}
+          >
+            <Video
+              ref={videoRef}
+              style={styles.video}
+              source={{ uri: tutor.videoUrl }}
+              useNativeControls={false}
+              resizeMode={ResizeMode.CONTAIN}
+              isLooping={false}
+              shouldPlay={isVideoPlaying}
+              onPlaybackStatusUpdate={(status) => {
+                if (status.isLoaded && status.didJustFinish) {
+                  handleFadeBack();
+                }
+              }}
+            />
+            
+            {/* Play/Pause overlay indicator */}
+            {!isVideoPlaying && (
+              <View style={styles.playPauseOverlay}>
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.6)']}
+                  style={styles.playPauseContainer}
+                >
+                  <IconSymbol size={60} name="play.circle.fill" color="#FFF" />
+                  <ThemedText style={styles.playPauseText}>Tap to play</ThemedText>
+                </LinearGradient>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
+        
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.videoInfo}
+        >
+          <ThemedText style={styles.videoTitle}>Introduction by {tutor.name}</ThemedText>
+          <ThemedText style={styles.videoSubtitle}>Get to know your potential tutor</ThemedText>
+        </LinearGradient>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
@@ -241,7 +486,8 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight }: TutorCar
 const styles = StyleSheet.create({
   card: {
     width: SCREEN_WIDTH * 0.9,
-    backgroundColor: '#fff',
+    height: SCREEN_WIDTH * 1.3, // Add explicit height
+    backgroundColor: 'transparent',
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: {
@@ -252,7 +498,23 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     position: 'absolute',
+    overflow: 'visible',
+  },
+  cardSide: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    backfaceVisibility: 'hidden',
+    borderRadius: 20,
     overflow: 'hidden',
+    backgroundColor: '#fff',
+  },
+  cardBack: {
+    backgroundColor: '#000',
+  },
+  cardTouchable: {
+    width: '100%',
+    height: '100%',
   },
   swipeIndicator: {
     position: 'absolute',
@@ -266,6 +528,16 @@ const styles = StyleSheet.create({
   },
   rightIndicator: {
     right: 20,
+  },
+  upIndicator: {
+    top: 20,
+    left: '50%',
+    marginLeft: -60, // Half of indicator width to center
+  },
+  downIndicator: {
+    bottom: 20,
+    left: '50%',
+    marginLeft: -60, // Half of indicator width to center
   },
   indicatorGradient: {
     paddingHorizontal: 20,
@@ -305,6 +577,110 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
+  playButtonOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  playButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    paddingVertical: 20,
+    borderRadius: 20,
+  },
+  playButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  videoCloseButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 1001,
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  closeButtonGradient: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  video: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#000',
+  },
+  videoTouchable: {
+    flex: 1,
+    width: '100%',
+    position: 'relative',
+  },
+  playPauseOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  playPauseContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    paddingVertical: 20,
+    borderRadius: 20,
+  },
+  playPauseText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  videoInfo: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+  },
+  videoTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  videoSubtitle: {
+    color: '#FFF',
+    fontSize: 16,
+    opacity: 0.9,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   infoContainer: {
     padding: 20,
   },
@@ -335,5 +711,14 @@ const styles = StyleSheet.create({
   bio: {
     fontSize: 16,
     lineHeight: 24,
+  },
+  tapHint: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    opacity: 0.8,
+    marginTop: 10,
+    textAlign: 'center',
+    color: '#6366f1',
+    fontWeight: '600',
   },
 });

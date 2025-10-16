@@ -12,7 +12,7 @@ import BellIcon from '@/components/BellIcon';
       bio: 'Mathematics tutor with 5+ years experience. Specializing in calculus and algebra. Patient and encouraging teaching style.',
       rating: 4.8,
       photoUrl: 'https://images.unsplash.com/photo-1494790108755-2616b9d5f296?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=987&q=80',
-      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4'
+      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
     },
     {
       id: '2',
@@ -20,15 +20,15 @@ import BellIcon from '@/components/BellIcon';
       bio: 'Physics and Chemistry expert. Making complex concepts simple and fun. Interactive learning approach.',
       rating: 4.9,
       photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=987&q=80',
-      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4'
+      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'
     },
     {
       id: '3',
       name: 'Emma Wilson',
-      bio: 'English Literature and Creative Writing mentor. Helping students find their voice and improve writing skills.',
+      bio: 'English Literature and Creative Writing mentor. Helping students find your voice and improve writing skills.',
       rating: 4.7,
       photoUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
-      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_5mb.mp4'
+      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
     },
     {
       id: '4',
@@ -36,7 +36,7 @@ import BellIcon from '@/components/BellIcon';
       bio: 'Computer Science and Programming instructor. Full-stack development, algorithms, and data structures.',
       rating: 4.6,
       photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
-      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4'
+      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4'
     },
     {
       id: '5',
@@ -44,7 +44,7 @@ import BellIcon from '@/components/BellIcon';
       bio: 'History and Social Studies teacher. Bringing the past to life with engaging stories and interactive lessons.',
       rating: 4.8,
       photoUrl: 'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=987&q=80',
-      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4'
+      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4'
     }
   ];
 
@@ -65,6 +65,20 @@ export default function ExploreScreen() {
     }
   };
 
+  const handleSwipeUp = () => {
+    console.log('Swiped up (super like)');
+    if (currentIndex < tutors.length - 1) {
+      setCurrentIndex(prevIndex => prevIndex + 1);
+    }
+  };
+
+  const handleSwipeDown = () => {
+    console.log('Swiped down (save for later)');
+    if (currentIndex < tutors.length - 1) {
+      setCurrentIndex(prevIndex => prevIndex + 1);
+    }
+  };
+
   return (
     <AuraBackground>
       <ThemedView style={[styles.container, { backgroundColor: 'transparent' }]}>
@@ -76,6 +90,8 @@ export default function ExploreScreen() {
               tutor={tutors[currentIndex]}
               onSwipeLeft={handleSwipeLeft}
               onSwipeRight={handleSwipeRight}
+              onSwipeUp={handleSwipeUp}
+              onSwipeDown={handleSwipeDown}
             />
           )}
         </ThemedView>
