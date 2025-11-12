@@ -16,6 +16,7 @@
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
+    "@zoom/react-native-videosdk": "^2.2.5",
     "dayjs": "^1.11.17",
     "expo": "^54.0.13",
     "expo-av": "^16.0.7",

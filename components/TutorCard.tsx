@@ -71,6 +71,8 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp,
   // Handle double tap on card to fade and show video
   const handleDoubleTap = () => {
     if (!isFlipped && tutor.videoUrl) {
+      // haptic to confirm double-tap
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
       fadeToVideo();
       setTimeout(() => {
         setIsVideoPlaying(true);
@@ -89,11 +91,15 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp,
     if (isFlipped) {
       // If video is showing, toggle play/pause
       if (isVideoPlaying) {
+        // pause haptic
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
         setIsVideoPlaying(false);
         if (videoRef.current) {
           videoRef.current.pauseAsync();
         }
       } else {
+        // play haptic
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
         setIsVideoPlaying(true);
         if (videoRef.current) {
           videoRef.current.playAsync();
@@ -116,6 +122,8 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp,
   // Handle fade back (closes video)
   const handleFadeBack = () => {
     if (isFlipped) {
+      // closing haptic
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
       setIsVideoPlaying(false);
       if (videoRef.current) {
         videoRef.current.pauseAsync();
@@ -141,6 +149,13 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp,
         y: (position.y as any)._value,
       });
       position.setValue({ x: 0, y: 0 });
+
+      // subtle selection haptic to indicate gesture start
+      try {
+        Haptics.selectionAsync();
+      } catch (e) {
+        // ignore haptics failures
+      }
     },
     onPanResponderMove: (_, gesture) => {
       // Update position during drag
@@ -321,44 +336,72 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp,
         },
       ]}
     >
-      {/* Left Swipe Indicator */}
+      {/* Left Swipe Indicator - Radial with depth */}
       <Animated.View style={[styles.swipeIndicator, styles.leftIndicator, { opacity: leftOpacity }]}>
         <LinearGradient
-          colors={['rgba(255,75,75,0.9)', 'rgba(255,100,100,0.8)']}
-          style={styles.indicatorGradient}
+          colors={[
+            'rgba(255,75,75,0.95)', // Bright red center
+            'rgba(124,58,237,0.3)', // Purple blend
+            'rgba(255,100,100,0.6)', // Red outer
+            'rgba(255,75,75,0.2)', // Soft edge
+          ]}
+          style={[styles.indicatorGradient, styles.radialIndicator]}
+          start={{ x: 0.5, y: 0.5 }}
+          end={{ x: 1.2, y: 1.2 }}
         >
           <IconSymbol size={40} name="xmark.circle.fill" color="#FFF" />
           <ThemedText style={styles.indicatorText}>NOPE</ThemedText>
         </LinearGradient>
       </Animated.View>
 
-      {/* Right Swipe Indicator */}
+      {/* Right Swipe Indicator - Radial with depth */}
       <Animated.View style={[styles.swipeIndicator, styles.rightIndicator, { opacity: rightOpacity }]}>
         <LinearGradient
-          colors={['rgba(75,255,75,0.9)', 'rgba(100,255,100,0.8)']}
-          style={styles.indicatorGradient}
+          colors={[
+            'rgba(75,255,75,0.95)', // Bright green center
+            'rgba(196,181,253,0.4)', // Light purple blend
+            'rgba(100,255,100,0.6)', // Green outer
+            'rgba(75,255,75,0.2)', // Soft edge
+          ]}
+          style={[styles.indicatorGradient, styles.radialIndicator]}
+          start={{ x: 0.5, y: 0.5 }}
+          end={{ x: 1.2, y: 1.2 }}
         >
           <IconSymbol size={40} name="heart.circle.fill" color="#FFF" />
           <ThemedText style={styles.indicatorText}>LIKE</ThemedText>
         </LinearGradient>
       </Animated.View>
 
-      {/* Up Swipe Indicator */}
+      {/* Up Swipe Indicator - Radial with depth */}
       <Animated.View style={[styles.swipeIndicator, styles.upIndicator, { opacity: upOpacity }]}>
         <LinearGradient
-          colors={['rgba(75,150,255,0.9)', 'rgba(100,170,255,0.8)']}
-          style={styles.indicatorGradient}
+          colors={[
+            'rgba(124,58,237,0.95)', // Purple center
+            'rgba(196,181,253,0.6)', // Light purple
+            'rgba(75,150,255,0.5)', // Blue blend
+            'rgba(124,58,237,0.2)', // Purple edge
+          ]}
+          style={[styles.indicatorGradient, styles.radialIndicator]}
+          start={{ x: 0.5, y: 0.5 }}
+          end={{ x: 1.2, y: 1.2 }}
         >
           <IconSymbol size={40} name="star.circle.fill" color="#FFF" />
           <ThemedText style={styles.indicatorText}>SUPER</ThemedText>
         </LinearGradient>
       </Animated.View>
 
-      {/* Down Swipe Indicator */}
+      {/* Down Swipe Indicator - Radial with depth */}
       <Animated.View style={[styles.swipeIndicator, styles.downIndicator, { opacity: downOpacity }]}>
         <LinearGradient
-          colors={['rgba(255,150,75,0.9)', 'rgba(255,170,100,0.8)']}
-          style={styles.indicatorGradient}
+          colors={[
+            'rgba(255,150,75,0.95)', // Orange center
+            'rgba(124,58,237,0.25)', // Purple hint
+            'rgba(255,170,100,0.6)', // Orange outer
+            'rgba(255,150,75,0.2)', // Soft edge
+          ]}
+          style={[styles.indicatorGradient, styles.radialIndicator]}
+          start={{ x: 0.5, y: 0.5 }}
+          end={{ x: 1.2, y: 1.2 }}
         >
           <IconSymbol size={40} name="bookmark.circle.fill" color="#FFF" />
           <ThemedText style={styles.indicatorText}>SAVE</ThemedText>
@@ -427,8 +470,14 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp,
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
-            style={styles.closeButtonGradient}
+            colors={[
+              'rgba(124,58,237,0.4)', // Purple center
+              'rgba(0,0,0,0.8)', // Dark blend
+              'rgba(0,0,0,0.95)' // Very dark edge
+            ]}
+            style={[styles.closeButtonGradient, styles.radialButton]}
+            start={{ x: 0.5, y: 0.5 }}
+            end={{ x: 1.1, y: 1.1 }}
           >
             <IconSymbol size={30} name="xmark" color="#FFF" />
           </LinearGradient>
@@ -455,12 +504,18 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp,
               }}
             />
             
-            {/* Play/Pause overlay indicator */}
+            {/* Play/Pause overlay indicator - Radial with depth */}
             {!isVideoPlaying && (
               <View style={styles.playPauseOverlay}>
                 <LinearGradient
-                  colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.6)']}
-                  style={styles.playPauseContainer}
+                  colors={[
+                    'rgba(124,58,237,0.3)', // Purple center
+                    'rgba(0,0,0,0.5)', // Dark blend
+                    'rgba(0,0,0,0.7)', // Darker outer
+                  ]}
+                  style={[styles.playPauseContainer, styles.radialOverlay]}
+                  start={{ x: 0.5, y: 0.5 }}
+                  end={{ x: 1.1, y: 1.1 }}
                 >
                   <IconSymbol size={60} name="play.circle.fill" color="#FFF" />
                   <ThemedText style={styles.playPauseText}>Tap to play</ThemedText>
@@ -471,8 +526,15 @@ export default function TutorCard({ tutor, onSwipeLeft, onSwipeRight, onSwipeUp,
         )}
         
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          colors={[
+            'transparent', 
+            'rgba(124,58,237,0.2)', // Purple tint
+            'rgba(0,0,0,0.6)', 
+            'rgba(0,0,0,0.9)'
+          ]}
           style={styles.videoInfo}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1.2 }}
         >
           <ThemedText style={styles.videoTitle}>Introduction by {tutor.name}</ThemedText>
           <ThemedText style={styles.videoSubtitle}>Get to know your potential tutor</ThemedText>
@@ -720,5 +782,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#6366f1',
     fontWeight: '600',
+  },
+  // Radial gradient styles for depth effects
+  radialIndicator: {
+    borderRadius: 100, // Creates circular effect for indicators
+  },
+  radialOverlay: {
+    borderRadius: 50, // Softer circular effect for overlays
+  },
+  radialButton: {
+    borderRadius: 25, // Smaller circular effect for buttons
   },
 });

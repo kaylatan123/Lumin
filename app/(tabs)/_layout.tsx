@@ -49,6 +49,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="calling"
+        options={{
+          title: 'Calling',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="phone.fill" color={color} />, 
+        }}
+      />
+      <Tabs.Screen
         name="pay"
         options={{
           title: 'Pay',

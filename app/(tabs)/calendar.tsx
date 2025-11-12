@@ -3,9 +3,10 @@ import BellIcon from '@/components/BellIcon';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
-import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +26,7 @@ const scheduledMeetings: { [key: string]: { tutor: string; time: string; subject
 export default function CalendarScreen() {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const fadeAnim = new Animated.Value(1);
+  const colorScheme = useColorScheme();
   
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
@@ -123,9 +125,9 @@ export default function CalendarScreen() {
               <IconSymbol size={12} name="star.fill" color="#FFD700" />
             </View>
           )}
-          <Text style={[styles.miniDayText, isToday && styles.todayText]}>
+          <ThemedText style={[styles.miniDayText, isToday && styles.todayText]}>
             {day}
-          </Text>
+          </ThemedText>
         </View>
       );
     }
@@ -139,19 +141,41 @@ export default function CalendarScreen() {
       >
         <LinearGradient
           colors={
-            isCurrentMonth 
-              ? ['rgba(245, 240, 220, 0.9)', 'rgba(200, 215, 180, 0.8)']
-              : ['rgba(255, 255, 255, 0.7)', 'rgba(245, 240, 220, 0.6)']
+            colorScheme === 'dark'
+              ? isCurrentMonth 
+                ? [
+                    'rgba(124, 58, 237, 0.4)', // Stronger purple for night current month
+                    'rgba(75, 0, 130, 0.7)', // Deep indigo
+                    'rgba(25, 25, 112, 0.8)' // Midnight blue edge
+                  ]
+                : [
+                    'rgba(138, 43, 226, 0.25)', // Violet for night other months
+                    'rgba(15, 15, 25, 0.8)', // Dark blend
+                    'rgba(10, 10, 15, 0.9)' // Very dark edge
+                  ]
+              : isCurrentMonth 
+                ? [
+                    'rgba(124, 58, 237, 0.2)', // Purple center
+                    'rgba(245, 240, 220, 0.9)', // Warm beige
+                    'rgba(200, 215, 180, 0.8)' // Soft green edge
+                  ]
+                : [
+                    'rgba(196, 181, 253, 0.1)', // Light purple center
+                    'rgba(255, 255, 255, 0.7)', // White
+                    'rgba(245, 240, 220, 0.6)' // Beige edge
+                  ]
           }
-          style={styles.miniMonthGradient}
+          style={[styles.miniMonthGradient, styles.radialMonth]}
+          start={{ x: 0.5, y: 0.3 }}
+          end={{ x: 1.1, y: 1.1 }}
         >
-          <Text style={[styles.miniMonthTitle, isCurrentMonth && styles.currentMonthTitle]}>
+          <ThemedText style={[styles.miniMonthTitle, isCurrentMonth && styles.currentMonthTitle]}>
             {months[monthIndex]}
-          </Text>
+          </ThemedText>
           <View style={styles.miniDaysGrid}>
             <View style={styles.dayLabelsRow}>
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, index) => (
-                <Text key={`${label}-${index}`} style={styles.dayLabel}>{label}</Text>
+                <ThemedText key={`${label}-${index}`} style={styles.dayLabel}>{label}</ThemedText>
               ))}
             </View>
             <View style={styles.daysContainer}>
@@ -194,10 +218,10 @@ export default function CalendarScreen() {
                 colors={['rgba(255, 69, 58, 0.9)', 'rgba(255, 45, 85, 0.8)']}
                 style={styles.todayCircle}
               >
-                <Text style={styles.todayFullText}>{day}</Text>
+                <ThemedText style={styles.todayFullText}>{day}</ThemedText>
               </LinearGradient>
             ) : (
-              <Text style={[styles.fullDayText, hasMeeting && styles.meetingDayText]}>{day}</Text>
+              <ThemedText style={[styles.fullDayText, hasMeeting && styles.meetingDayText]}>{day}</ThemedText>
             )}
             
             {hasMeeting && (
@@ -218,24 +242,52 @@ export default function CalendarScreen() {
           activeOpacity={0.7}
         >
           <LinearGradient
-            colors={['rgba(200, 215, 180, 0.8)', 'rgba(180, 200, 160, 0.9)']}
-            style={styles.backButtonGradient}
+            colors={
+              colorScheme === 'dark'
+                ? [
+                    'rgba(124, 58, 237, 0.4)', // Stronger purple for night
+                    'rgba(138, 43, 226, 0.6)', // Violet blend
+                    'rgba(25, 25, 112, 0.8)' // Midnight blue edge
+                  ]
+                : [
+                    'rgba(124, 58, 237, 0.25)', // Purple center
+                    'rgba(200, 215, 180, 0.8)', // Green blend
+                    'rgba(180, 200, 160, 0.9)' // Darker green edge
+                  ]
+            }
+            style={[styles.backButtonGradient, styles.radialButton]}
+            start={{ x: 0.5, y: 0.5 }}
+            end={{ x: 1.2, y: 1.2 }}
           >
-            <Text style={styles.backButtonText}>← Back to All Months</Text>
+            <ThemedText style={styles.backButtonText}>← Back to All Months</ThemedText>
           </LinearGradient>
         </TouchableOpacity>
         
         <LinearGradient
-          colors={['rgba(245, 240, 220, 0.95)', 'rgba(200, 215, 180, 0.9)']}
-          style={styles.fullMonthGradient}
+          colors={
+            colorScheme === 'dark'
+              ? [
+                  'rgba(124, 58, 237, 0.3)', // Purple center for night
+                  'rgba(75, 0, 130, 0.8)', // Deep indigo
+                  'rgba(10, 10, 15, 0.9)' // Very dark edge
+                ]
+              : [
+                  'rgba(124, 58, 237, 0.15)', // Purple center
+                  'rgba(245, 240, 220, 0.95)', // Warm beige
+                  'rgba(200, 215, 180, 0.9)' // Green edge
+                ]
+          }
+          style={[styles.fullMonthGradient, styles.radialFullMonth]}
+          start={{ x: 0.5, y: 0.2 }}
+          end={{ x: 1.3, y: 1.3 }}
         >
-          <Text style={styles.fullMonthTitle}>
+          <ThemedText style={styles.fullMonthTitle}>
             {months[monthIndex]} {currentYear}
-          </Text>
+          </ThemedText>
           
           <View style={styles.fullDayLabelsRow}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, index) => (
-              <Text key={`${label}-${index}`} style={styles.fullDayLabel}>{label}</Text>
+              <ThemedText key={`${label}-${index}`} style={styles.fullDayLabel}>{label}</ThemedText>
             ))}
           </View>
           
@@ -267,25 +319,39 @@ export default function CalendarScreen() {
         <Animated.View style={{ opacity: fadeAnim }}>
           <ThemedView style={[styles.header, { backgroundColor: 'transparent' }]}>
             <LinearGradient
-              colors={['rgba(245, 240, 220, 0.9)', 'rgba(200, 215, 180, 0.8)']}
-              style={styles.headerGradient}
+              colors={
+                colorScheme === 'dark'
+                  ? [
+                      'rgba(124, 58, 237, 0.3)', // Purple center for night
+                      'rgba(25, 25, 112, 0.8)', // Midnight blue
+                      'rgba(10, 10, 15, 0.9)' // Very dark edge
+                    ]
+                  : [
+                      'rgba(124, 58, 237, 0.18)', // Purple center
+                      'rgba(245, 240, 220, 0.9)', // Warm beige
+                      'rgba(200, 215, 180, 0.8)' // Green edge
+                    ]
+              }
+              style={[styles.headerGradient, styles.radialHeader]}
+              start={{ x: 0.5, y: 0.3 }}
+              end={{ x: 1.2, y: 1.2 }}
             >
               <ThemedText type="title" style={styles.headerText}>
                 Calendar {currentYear}
               </ThemedText>
-              <Text style={styles.headerSubtext}>
+              <ThemedText style={styles.headerSubtext}>
                 Tap any month to view details
-              </Text>
+              </ThemedText>
               
               {/* Legend */}
               <View style={styles.legendContainer}>
                 <View style={styles.legendItem}>
                   <View style={styles.legendCircle} />
-                  <Text style={styles.legendText}>Today</Text>
+                  <ThemedText style={styles.legendText}>Today</ThemedText>
                 </View>
                 <View style={styles.legendItem}>
                   <IconSymbol size={14} name="star.fill" color="#FFD700" />
-                  <Text style={styles.legendText}>Meeting</Text>
+                  <ThemedText style={styles.legendText}>Meeting</ThemedText>
                 </View>
               </View>
             </LinearGradient>
@@ -534,5 +600,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#5a6c57',
     fontWeight: '500',
+  },
+  // Radial gradient styles for depth effects
+  radialMonth: {
+    // Removed borderRadius for full coverage
+  },
+  radialButton: {
+    borderRadius: 15, // Keep rounded for buttons only
+  },
+  radialFullMonth: {
+    // Removed borderRadius for full coverage
+  },
+  radialHeader: {
+    // Removed borderRadius for full coverage
   },
 });
